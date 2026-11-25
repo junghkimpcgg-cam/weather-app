@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>날씨 검색</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .weather-info {
+            display: none;
+            text-align: center;
+        }
+
+        .weather-info.show {
+            display: block;
+            animation: slideIn 0.5s ease-in-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .city-name {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .weather-icon {
+            font-size: 80px;
+            margin: 20px 0;
+        }
+
+        .temperature {
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .weather-description {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .weather-details {
+            background: #f5f5f5;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 15px;
+            background: #fadbd8;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 날씨 검색</h1>
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="cityInput"
+                placeholder="도시명을 입력하세요 (예: 서울, Tokyo, New York)"
+                autocomplete="off"
+            >
+            <button onclick="searchWeather()">검색</button>
+        </div>
+
+        <div class="loading" id="loading">검색 중...</div>
+        <div class="error" id="error"></div>
+
+        <div class="weather-info" id="weatherInfo">
+            <div class="city-name" id="cityName"></div>
+            <div class="weather-icon" id="weatherIcon"></div>
+            <div class="temperature" id="temperature"></div>
+            <div class="weather-description" id="weatherDescription"></div>
+            <div class="weather-details">
+                <div class="detail-row">
+                    <span class="detail-label">습도</span>
+                    <span class="detail-value" id="humidity"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">풍속</span>
+                    <span class="detail-value" id="windSpeed"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">위치</span>
+                    <span class="detail-value" id="coordinates"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">시간대</span>
+                    <span class="detail-value" id="timezone"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const weatherDescriptions = {
+            0: '맑음',
+            1: '거의 맑음',
+            2: '부분적으로 흐림',
+            3: '흐림',
+            45: '안개',
+            48: '눈 입자',
+            51: '이슬비',
+            53: '중간 이슬비',
+            55: '강한 이슬비',
+            61: '약한 비',
+            63: '중간 비',
+            65: '강한 비',
+            71: '약한 눈',
+            73: '중간 눈',
+            75: '강한 눈',
+            77: '눈 입자',
+            80: '약한 소나기',
+            81: '중간 소나기',
+            82: '강한 소나기',
+            85: '약한 눈 소나기',
+            86: '강한 눈 소나기',
+            95: '뇌우',
+            96: '약한 우박 뇌우',
+            99: '강한 우박 뇌우'
+        };
+
+        const weatherEmojis = {
+            0: '☀️',
+            1: '🌤️',
+            2: '⛅',
+            3: '☁️',
+            45: '🌫️',
+            48: '🌫️',
+            51: '🌦️',
+            53: '🌦️',
+            55: '🌧️',
+            61: '🌧️',
+            63: '🌧️',
+            65: '⛈️',
+            71: '🌨️',
+            73: '🌨️',
+            75: '🌨️',
+            77: '🌨️',
+            80: '🌧️',
+            81: '⛈️',
+            82: '⛈️',
+            85: '🌨️',
+            86: '🌨️',
+            95: '⛈️',
+            96: '⛈️',
+            99: '⛈️'
+        };
+
+        async function searchWeather() {
+            const city = document.getElementById('cityInput').value.trim();
+
+            if (!city) {
+                showError('도시명을 입력해주세요');
+                return;
+            }
+
+            showLoading(true);
+            clearError();
+
+            try {
+                // 도시 검색 (지오코딩)
+                const geocodeResponse = await fetch(
+                    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ko&format=json`
+                );
+                const geocodeData = await geocodeResponse.json();
+
+                if (!geocodeData.results || geocodeData.results.length === 0) {
+                    showError('해당 도시를 찾을 수 없습니다');
+                    showLoading(false);
+                    return;
+                }
+
+                const location = geocodeData.results[0];
+                const { latitude, longitude, name, country, timezone } = location;
+
+                // 날씨 정보 조회
+                const weatherResponse = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=${encodeURIComponent(timezone)}`
+                );
+                const weatherData = await weatherResponse.json();
+
+                const current = weatherData.current;
+                const weatherCode = current.weather_code;
+
+                // UI 업데이트
+                document.getElementById('cityName').textContent = `${name}, ${country}`;
+                document.getElementById('weatherIcon').textContent = weatherEmojis[weatherCode] || '🌤️';
+                document.getElementById('temperature').textContent = `${Math.round(current.temperature_2m)}°C`;
+                document.getElementById('weatherDescription').textContent = weatherDescriptions[weatherCode] || '알 수 없음';
+                document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
+                document.getElementById('windSpeed').textContent = `${current.wind_speed_10m} km/h`;
+                document.getElementById('coordinates').textContent = `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
+                document.getElementById('timezone').textContent = timezone;
+
+                document.getElementById('weatherInfo').classList.add('show');
+                showLoading(false);
+            } catch (error) {
+                console.error('Error:', error);
+                showError('날씨 정보를 가져오지 못했습니다. 다시 시도해주세요.');
+                showLoading(false);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function clearError() {
+            const errorDiv = document.getElementById('error');
+            errorDiv.classList.remove('show');
+        }
+
+        function showLoading(show) {
+            const loadingDiv = document.getElementById('loading');
+            if (show) {
+                loadingDiv.classList.add('show');
+            } else {
+                loadingDiv.classList.remove('show');
+            }
+        }
+
+        // Enter 키로도 검색 가능
+        document.getElementById('cityInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchWeather();
+            }
+        });
+    </script>
+</body>
+</html>
